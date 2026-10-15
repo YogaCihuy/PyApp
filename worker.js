@@ -3,10 +3,10 @@
 // FIREBASE_API_KEY, ALLOWED_ORIGIN (contoh "https://yogacihuy.github.io")
 
 const gh = (env, path, init = {}) =>
-  fetch('https://api.github.com/repos/' + env.REPO + path, {
+  fetch('https://api.github.com/repos/' + env.YogaCihuy/PyApp + path, {
     ...init,
     headers: {
-      Authorization: 'Bearer ' + env.GH_TOKEN,
+      Authorization: 'Bearer ' + env.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,
       Accept: 'application/vnd.github+json',
       'User-Agent': 'pyapp-worker',
       ...(init.headers || {}),
@@ -15,7 +15,7 @@ const gh = (env, path, init = {}) =>
 
 function cors(env, res) {
   const h = new Headers(res.headers);
-  h.set('Access-Control-Allow-Origin', env.ALLOWED_ORIGIN);
+  h.set('Access-Control-Allow-Origin', env.https://yogacihuy.github.io);
   h.set('Access-Control-Allow-Headers', 'Authorization');
   h.set('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
   return new Response(res.body, { status: res.status, headers: h });
@@ -25,7 +25,7 @@ async function verify(env, request) {
   const token = (request.headers.get('Authorization') || '').replace('Bearer ', '');
   if (!token) return null;
   const r = await fetch(
-    'https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=' + env.FIREBASE_API_KEY,
+    'https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=' + env.AIzaSyCXrGoWJk5fEeMOiSwfcAoSZAukVFpt5zE,
     { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken: token }) }
   );
   if (!r.ok) return null;
