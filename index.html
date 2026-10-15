@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PyApp</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#12151d;--panel:#1a1f2b;--line:#2a3142;--text:#e7eaf2;--muted:#8f99ad;--blue:#5aa2e6;--yellow:#f2c94c;--bad:#ef7d7d}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:400 16px/1.5 Manrope,system-ui,sans-serif}
+header{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--line)}
+.logo{font-weight:800;font-size:20px;margin-right:auto}.logo b{color:var(--yellow)}
+#who{color:var(--muted);font-size:14px}
+button{font:inherit;color:inherit;cursor:pointer}
+.ghost{background:none;border:1px solid var(--line);border-radius:8px;padding:8px 14px}
+.ghost:hover{border-color:var(--blue)}
+main{max-width:760px;margin:0 auto;padding:40px 20px}
+h1{font-size:clamp(30px,6vw,46px);line-height:1.1;font-weight:800;margin:0 0 12px;max-width:16ch}
+.sub{color:var(--muted);max-width:52ch;margin:0 0 28px}
+.seg{border:0;padding:0;margin:0 0 20px;display:flex;gap:10px;flex-wrap:wrap}
+.seg legend{color:var(--muted);font-size:14px;margin-bottom:8px;padding:0}
+.seg label{flex:1;min-width:150px}
+.seg input{position:absolute;opacity:0}
+.seg span{display:block;text-align:center;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--panel);cursor:pointer;font-weight:600}
+.seg input:checked+span{border-color:var(--yellow);background:#262c3b}
+.seg input:focus-visible+span{outline:2px solid var(--yellow);outline-offset:2px}
+.act{display:flex;flex-direction:column;gap:10px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:16px;text-align:left;width:100%;background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--blue);border-radius:10px;padding:18px 20px}
+.row:hover{border-color:var(--blue)}
+.row strong{font-size:18px}.row span{color:var(--muted);font-size:14px;max-width:34ch;text-align:right}
+#note{margin-top:18px;color:var(--muted);font-size:14px}
+#status{margin-top:16px;min-height:24px;color:var(--muted)}
+#status.err{color:var(--bad)}#status a{color:var(--yellow);font-weight:600}
+:focus-visible{outline:2px solid var(--yellow);outline-offset:2px}
+</style></head><body>
+<header><div class="logo">Py<b>App</b></div><span id="who"></span><button class="ghost" id="login">Masuk dengan Google</button></header>
+<main>
+  <h1>Ubah script Python jadi aplikasi.</h1>
+  <p class="sub">Pilih hasil yang kamu mau, lalu masukkan kodenya.</p>
+  <fieldset class="seg"><legend>Hasil build</legend>
+    <label><input type="radio" name="t" value="exe" checked><span>Exe untuk Windows</span></label>
+    <label><input type="radio" name="t" value="apk"><span>Apk untuk Android</span></label>
+  </fieldset>
+  <div class="act">
+    <button class="row" id="b-folder"><strong>Upload folder</strong><span>Proyek dengan banyak file Python. Dikompres jadi satu lalu dibuild.</span></button>
+    <button class="row" id="b-file"><strong>Upload file</strong><span>Satu file .py yang sudah jadi.</span></button>
+  </div>
+  <p id="note"></p>
+  <p id="status"></p>
+  <input type="file" id="in-folder" webkitdirectory hidden>
+  <input type="file" id="in-file" accept=".py" hidden>
+</main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script>
+// ISI bagian ini dulu (lihat PANDUAN.md)
+const CFG={
+  firebase:{apiKey:"ISI",authDomain:"ISI.firebaseapp.com",projectId:"ISI"},
+  worker:"https://pyapp.NAMA.workers.dev"
+};
+const $=s=>document.querySelector(s);
+const target=()=>document.querySelector('input[name=t]:checked').value;
+const NOTES={
+  exe:'Mendukung Tkinter dan CustomTkinter. Hasilnya satu file .exe dengan jendela console. Build sekitar 2 sampai 4 menit.',
+  apk:'Tkinter tidak bisa jalan di Android. Untuk Apk, kodemu harus memakai Kivy dan file utamanya main.py. Build pertama bisa 20 sampai 40 menit.'
+};
+const setNote=()=>$('#note').textContent=NOTES[target()];
+document.querySelectorAll('input[name=t]').forEach(r=>r.onchange=setNote);setNote();
+
+firebase.initializeApp(CFG.firebase);const auth=firebase.auth();let user=null;
+auth.onAuthStateChanged(u=>{user=u;$('#who').textContent=u?(u.displayName||u.email):'';$('#login').textContent=u?'Keluar':'Masuk dengan Google'});
+$('#login').onclick=()=>user?auth.signOut():auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+function say(t,err){const s=$('#status');s.innerHTML=t;s.className=err?'err':''}
+
+$('#b-folder').onclick=()=>$('#in-folder').click();
+$('#b-file').onclick=()=>$('#in-file').click();
+const SKIP=/(^|\/)(__pycache__|\.git|\.venv|venv|node_modules|dist|build|bin)(\/|$)|\.(pyc|exe|apk)$/;
+
+$('#in-folder').onchange=e=>{
+  const fs=[...e.target.files];if(!fs.length)return;
+  const zip=new JSZip();const names=[];
+  for(const f of fs){
+    const p=f.webkitRelativePath.split('/').slice(1).join('/');
+    if(!p||SKIP.test(p))continue;
+    zip.file(p,f);names.push(p);
+  }
+  const py=names.filter(n=>n.endsWith('.py'));
+  const root=py.filter(n=>!n.includes('/'));
+  const entry=['main.py','app.py'].find(n=>root.includes(n))||root[0]||py[0];
+  if(!entry)return say('Tidak ada file .py di folder ini.',1);
+  e.target.value='';build(zip,entry);
+};
+$('#in-file').onchange=e=>{
+  const f=e.target.files[0];if(!f)return;
+  const zip=new JSZip();zip.file(f.name,f);
+  e.target.value='';build(zip,f.name);
+};
+
+async function build(zip,entry){
+  if(!user)return say('Masuk dulu untuk membuat aplikasi.',1);
+  const t=target();
+  say('File utama: '+entry+'. Mengompres dan mengunggah...');
+  const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE'});
+  if(blob.size>25e6)return say('Ukuran proyek lebih dari 25 MB. Kecilkan dulu.',1);
+  const fd=new FormData();fd.append('zip',blob,'src.zip');fd.append('entry',entry);fd.append('target',t);
+  try{
+    const r=await fetch(CFG.worker+'/build',{method:'POST',headers:{Authorization:'Bearer '+await user.getIdToken()},body:fd});
+    if(!r.ok)return say('Gagal mengunggah: '+(await r.text()),1);
+    poll((await r.json()).id,Date.now(),t);
+  }catch(_){say('Tidak bisa terhubung ke server build.',1)}
+}
+async function poll(id,t0,t){
+  try{
+    const s=await (await fetch(`${CFG.worker}/status/${id}`)).json();
+    if(s.state==='done')return say(`Selesai. <a href="${encodeURI(s.url)}">Unduh ${t==='apk'?'app.apk':'app.exe'}</a>`);
+    if(s.state==='failed'){const m=document.createElement('span');m.textContent=s.reason||'Periksa kodenya, lalu coba lagi.';return say('Build gagal. '+m.innerHTML,1)}
+  }catch(_){}
+  if(Date.now()-t0>(t==='apk'?36e5:9e5))return say('Build terlalu lama. Coba lagi nanti.',1);
+  say(t==='apk'?'Sedang membuild Apk, bisa 20 sampai 40 menit. Halaman ini boleh dibiarkan terbuka.':'Sedang membuild exe, biasanya 2 sampai 4 menit...');
+  setTimeout(()=>poll(id,t0,t),5000);
+}
+</script></body></html>
