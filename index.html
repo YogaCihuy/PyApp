@@ -56,7 +56,7 @@ h1{font-size:clamp(30px,6vw,46px);line-height:1.1;font-weight:800;margin:0 0 12p
 // ISI bagian ini dulu (lihat PANDUAN.md)
 const CFG={
   firebase:{apiKey:"AIzaSyCXrGoWJk5fEeMOiSwfcAoSZAukVFpt5zE",authDomain:"pyapp-d768a.firebaseapp.com",projectId:"pyapp-d768a"},
-  worker:"pyapp.putuyoga101913.workers.dev"
+  worker:"https://pyapp.putuyoga101913.workers.dev"
 };
 const $=s=>document.querySelector(s);
 const target=()=>document.querySelector('input[name=t]:checked').value;
@@ -69,8 +69,19 @@ document.querySelectorAll('input[name=t]').forEach(r=>r.onchange=setNote);setNot
 
 firebase.initializeApp(CFG.firebase);const auth=firebase.auth();let user=null;
 auth.onAuthStateChanged(u=>{user=u;$('#who').textContent=u?(u.displayName||u.email):'';$('#login').textContent=u?'Keluar':'Masuk dengan Google'});
-$('#login').onclick=()=>user?auth.signOut():auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
 function say(t,err){const s=$('#status');s.innerHTML=t;s.className=err?'err':''}
+$('#login').onclick=async()=>{
+  if(user)return auth.signOut();
+  const p=new firebase.auth.GoogleAuthProvider();
+  try{await auth.signInWithPopup(p)}
+  catch(e){
+    if(['auth/popup-blocked','auth/popup-closed-by-user','auth/cancelled-popup-request','auth/operation-not-supported-in-this-environment'].includes(e.code)){
+      try{return await auth.signInWithRedirect(p)}catch(e2){e=e2}
+    }
+    say('Login gagal ('+(e.code||e.message)+'). Lihat tabel masalah di PANDUAN.md.',1);
+  }
+};
+auth.getRedirectResult().catch(e=>say('Login gagal ('+(e.code||e.message)+').',1));
 
 $('#b-folder').onclick=()=>$('#in-folder').click();
 $('#b-file').onclick=()=>$('#in-file').click();
